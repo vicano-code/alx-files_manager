@@ -1,48 +1,38 @@
 // Mongodb database client
 const { MongoClient } = require('mongodb');
 
+const DB_HOST = process.env.DB_HOST || 'localhost';
+const DB_PORT = process.env.DB_PORT || 27017;
+const DB_DATABASE = process.env.DB_DATABASE || 'files_manager';
+const uri = `mongodb://${DB_HOST}:${DB_PORT}`;
+
 class DBClient {
-  constructor(host, port, database) {
-    this.host = host || process.env.DB_HOST || 'localhost';
-    this.port = port || process.env.DB_PORT || 27017;
-    this.database = database || process.env.DB_DATABASE || 'files_manager';
-
-    this.uri = `mongodb://${this.host}:${this.port}`;
-    this.client = new MongoClient(this.uri, { useNewUrlParser: true, useUnifiedTopology: true });
-
-    // Connect to the MongoDB client
-    this.client.connect()
-      .then(() => {
-        console.log('Connected to MongoDB');
-        this.db = this.client.db(database);
-      })
-      .catch((err) => {
-        console.error('Error connecting to MongoDB', err);
-      });
+  constructor() {
+    MongoClient.connect(uri, { useUnifiedTopology: true }, (err, client) => {
+      if (!err) {
+        this.db = client.db(DB_DATABASE);
+        this.users = this.db.collection('users');
+        this.files = this.db.collection('files');
+      } else {
+        console.log(err.message);
+        this.db = false;
+      }
+    });
   }
 
+  // Check if the client is connected
   isAlive() {
-    return this.client.isConnected(); // Check if the client is connected
+    return !!this.db; 
   }
 
   async nbUsers() {
-    try {
-      const users_collection = this.db.collection('users');
-      return await users_collection.countDocuments();
-    } catch(err) {
-      console.error('Error counting users:', err);
-    }
+    return this.users.countDocuments();
   }
 
   async nbFiles() {
-    try {
-      const files_collection = this.db.collection('files');
-      return await files_collection.countDocuments();
-    } catch(err) {
-      console.error('Error counting files:', err);
-    }
+    return this.files.countDocuments();
   }
 }
 
-const dbClient = new DBClient;
+const dbClient = new DBClient();
 module.exports = dbClient;

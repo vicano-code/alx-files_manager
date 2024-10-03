@@ -1,25 +1,31 @@
 // controllers/AppController.js
-import redisClient from '../utils/redis.js'; // Redis client
-import dbClient from '../utils/mongodb.js'; // MongoDB client
+import redisClient from '../utils/redis';
+import dbClient from '../utils/db';
 
 class AppController {
-  // GET /status
+  // Get connection status of redisClient and dbClient
   static async getStatus(req, res) {
-    const redisAlive = redisClient.isAlive();
-    const dbAlive = await dbClient.isAlive();
+    try {
+      const redisAlive = redisClient.isAlive();
+      const dbAlive = await dbClient.isAlive();
 
-    return res.status(200).json({redis: redisAlive, db: dbAlive});
+      return res.status(200).json({ redis: redisAlive, db: dbAlive });
+    } catch (err) {
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
   }
 
-  // GET /stats
+  // Get number of users and files in DB
   static async getStats(req, res) {
     try {
       const usersCount = await dbClient.nbUsers(); // Count users
       const filesCount = await dbClient.nbFiles(); // Count files
 
-      return res.status(200).json({ users: usersCount, files: filesCount })
+      return res.status(200).json({ users: usersCount, files: filesCount });
     } catch (err) {
-      return res.status(500).json({ error: 'Internal Server Error' })
+      return res.status(500).json({ error: 'Internal Server Error' });
     }
   }
 }
+
+module.exports = AppController;
