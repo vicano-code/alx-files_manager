@@ -1,4 +1,3 @@
-// controllers/FilesController.js
 const { ObjectId } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
@@ -16,7 +15,7 @@ class FilesController {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const user = await dbClient.getDb().collection('users').findOne({ _id: ObjectId(userId) });
+    const user = await dbClient.users.findOne({ _id: ObjectId(userId) });
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -40,7 +39,7 @@ class FilesController {
 
     let parentFile = null;
     if (parentId !== 0) {
-      parentFile = await dbClient.getDb().collection('files').findOne({ _id: ObjectId(parentId) });
+      parentFile = await dbClient.files.findOne({ _id: ObjectId(parentId) });
 
       if (!parentFile) {
         return res.status(400).json({ error: 'Parent not found' });
@@ -61,7 +60,7 @@ class FilesController {
 
     if (type === 'folder') {
       // Create folder in DB
-      const result = await dbClient.getDb().collection('files').insertOne(newFile);
+      const result = await dbClient.files.insertOne(newFile);
       return res.status(201).json(result.ops[0]);
     }
     // Handle file and image storage
@@ -80,8 +79,52 @@ class FilesController {
     newFile.localPath = filePath;
 
     // Insert the new file document in the database
-    const result = await dbClient.getDb().collection('files').insertOne(newFile);
+    const result = await dbClient.files.insertOne(newFile);
     return res.status(201).json(result.ops[0]);
+  }
+
+  static async getShow(req, res) {
+    try {
+      const token = req.headers['x-token'];
+      const userId = await redisClient.get(`auth_${token}`);
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const fileId = req.params.id;
+      const file = await dbClient.files.findOne({
+        _id: new ObjectId(fileId),
+        userId: new ObjectId(userId),
+      });
+
+      if (!file) return res.status(404).json({ error: 'Not found' });
+      return res.json(file);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  static async getIndex(req, res) {
+    try {
+      const token = req.headers['x-token'];
+      const userId = await redisClient.get(`auth_${token}`);
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const parentId = req.query.parentId || '0';
+      const page = parseInt(req.query.page, 10) || 0;
+      const pageSize = 20;
+
+      const pipeline = [
+        { $match: { userId: new ObjectId(userId), parentId } },
+        { $skip: page * pageSize },
+        { $limit: pageSize },
+      ];
+
+      const files = await dbClient.files.aggregate(pipeline).toArray();
+      return res.json(files);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
   }
 }
 
