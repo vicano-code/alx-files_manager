@@ -22,7 +22,7 @@ class DBClient {
 
   // Check if the client is connected
   isAlive() {
-    return !!this.db; 
+    return !!this.db;
   }
 
   async nbUsers() {
